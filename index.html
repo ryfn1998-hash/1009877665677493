@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Wars 500x500 自由亂鬥版</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #121212;
+            color: white;
+            font-family: sans-serif;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #ui-top {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 10;
+            width: 90%;
+            pointer-events: none;
+        }
+        h1 { margin: 0; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        p { margin: 5px 0 0 0; font-size: 13px; color: #ffcc00; text-shadow: 0 1px 2px rgba(0,0,0,0.8); font-weight: bold; }
+
+        #viewport {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: grab;
+        }
+        #viewport:active { cursor: grabbing; }
+
+        #canvas-wrapper {
+            position: absolute;
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            background-color: white;
+            background-image: 
+                linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
+            background-size: 10px 10px;
+            transform-origin: 0 0;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        #ui-bottom {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        .palette {
+            display: flex;
+            gap: 8px;
+            background: rgba(40, 40, 40, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 8px 15px;
+            border-radius: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .color-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .color-btn.active {
+            border-color: white;
+            transform: scale(1.1);
+        }
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+    <div id="ui-top">
+        <h1>Pixel Wars 像素大戰</h1>
+        <p id="status">無限狂歡模式：點擊立刻上色，全無冷卻時間！</p>
+    </div>
+
+    <div id="viewport">
+        <div id="canvas-wrapper">
+            <canvas id="pixelCanvas"></canvas>
+        </div>
+    </div>
+
+    <div id="ui-bottom">
+        <div class="palette" id="palette">
+            <div class="color-btn active" style="background-color: #000000;" data-color="#000000"></div>
+            <div class="color-btn" style="background-color: #ffffff; border: 1px solid #555;" data-color="#ffffff"></div>
+            <div class="color-btn" style="background-color: #e50000;" data-color="#e50000"></div>
+            <div class="color-btn" style="background-color: #00cc00;" data-color="#00cc00"></div>
+            <div class="color-btn" style="background-color: #0000e5;" data-color="#0000e5"></div>
+            <div class="color-btn" style="background-color: #f5f500;" data-color="#f5f500"></div>
+            <div class="color-btn" style="background-color: #a000a0;" data-color="#a000a0"></div>
+            <div class="color-btn" style="background-color: #00a0a0;" data-color="#00a0a0"></div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCBdgYtNIFl21qObobpNCVsovzrAoPPUv8",
+            authDomain: "my-pixel-wars.firebaseapp.com",
+            projectId: "my-pixel-wars",
+            storageBucket: "my-pixel-wars.firebasestorage.app",
+            messagingSenderId: "559903428145",
+            appId: "1:559903428145:web:2f9b3db4f56a1abb918f10",
+            measurementId: "G-Q378F75DH8",
+            databaseURL: "https://my-pixel-wars-default-rtdb.firebaseio.com"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const pixelsRef = db.ref('pixels');
+
+        const viewport = document.getElementById('viewport');
+        const wrapper = document.getElementById('canvas-wrapper');
+        const canvas = document.getElementById('pixelCanvas');
+        const ctx = canvas.getContext('2d');
+        const palette = document.getElementById('palette');
+        const statusText = document.getElementById('status');
+
+        const MAP_SIZE = 500; 
+        const CELL_SIZE = 10;
+
+        wrapper.style.width = (MAP_SIZE * CELL_SIZE) + 'px';
+        wrapper.style.height = (MAP_SIZE * CELL_SIZE) + 'px';
+        canvas.width = MAP_SIZE;
+        canvas.height = MAP_SIZE;
+
+        ctx.imageSmoothingEnabled = false;
+
+        let scale = 1;         
+        let offsetX = 0;       
+        let offsetY = 0;       
+        let isDragging = false;
+        let startX, startY;
+        let touchStartDist = 0; 
+        let startScale = 1;
+        let isPanning = false;  
+        let selectedColor = '#000000';
+
+        const localMap = {}; 
+
+        function centerCanvas() {
+            scale = Math.min(window.innerWidth, window.innerHeight) / (MAP_SIZE * CELL_SIZE) * 0.9;
+            offsetX = (window.innerWidth - (MAP_SIZE * CELL_SIZE) * scale) / 2;
+            offsetY = (window.innerHeight - (MAP_SIZE * CELL_SIZE) * scale) / 2;
+            render();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let key in localMap) {
+                const [x, y] = key.split(',').map(Number);
+                ctx.fillStyle = localMap[key];
+                ctx.fillRect(x, y, 1, 1);
+            }
+
+            if (scale > 0.8) {
+                wrapper.style.backgroundImage = `
+                    linear-gradient(to right, rgba(0,0,0,0.15) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0,0,0,0.15) 1px, transparent 1px)
+                `;
+            } else {
+                wrapper.style.backgroundImage = `
+                    linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px)
+                `;
+            }
+            wrapper.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+        }
+
+        // 即時監聽雲端資料庫
+        pixelsRef.on('child_added', (snapshot) => {
+            const key = snapshot.key;
+            const data = snapshot.val();
+            const cleanKey = key.replace('x', '').replace('y', '').replace('_', ',');
+            localMap[cleanKey] = data.color;
+            render();
+        });
+
+        pixelsRef.on('child_changed', (snapshot) => {
+            const key = snapshot.key;
+            const data = snapshot.val();
+            const cleanKey = key.replace('x', '').replace('y', '').replace('_', ',');
+            localMap[cleanKey] = data.color;
+            render();
+        });
+
+        db.ref('.info/connected').on('value', (snapshot) => {
+            if (snapshot.val() === true) {
+                statusText.innerText = "無限狂歡模式：點擊立刻上色，全無冷卻時間！";
+            } else {
+                statusText.innerText = "斷線中，正在重新連線...";
+            }
+        });
+
+        // 🟢 核心改動：移除所有時間攔截，所有人點擊直接送往 Firebase
+        function tryPlacePixel(clickX, clickY) {
+            if (clickX >= 0 && clickX < MAP_SIZE && clickY >= 0 && clickY < MAP_SIZE) {
+                const dbKey = `x${clickX}_y${clickY}`;
+                pixelsRef.child(dbKey).set({
+                    color: selectedColor,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                }).catch((error) => {
+                    console.error("上傳失敗：", error);
+                });
+            }
+        }
+
+        // --- 操作事件監聽 ---
+        viewport.addEventListener('mousedown', (e) => {
+            if (e.target === palette || e.target.classList.contains('color-btn')) return;
+            isDragging = true;
+            isPanning = false;
+            startX = e.clientX - offsetX;
+            startY = e.clientY - offsetY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            isPanning = true;
+            offsetX = e.clientX - startX;
+            offsetY = e.clientY - startY;
+            render();
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            if (!isPanning) {
+                const clickX = Math.floor((e.clientX - offsetX) / (scale * CELL_SIZE));
+                const clickY = Math.floor((e.clientY - offsetY) / (scale * CELL_SIZE));
+                tryPlacePixel(clickX, clickY);
+            }
+        });
+
+        viewport.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomFactor = 1.2;
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+            const canvasX = (mouseX - offsetX) / scale;
+            const canvasY = (mouseY - offsetY) / scale;
+
+            if (e.deltaY < 0) scale *= zoomFactor;
+            else scale /= zoomFactor;
+            scale = Math.max(0.05, Math.min(scale, 15));
+
+            offsetX = mouseX - canvasX * scale;
+            offsetY = mouseY - canvasY * scale;
+            render();
+        }, { passive: false });
+
+        viewport.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                isPanning = false;
+                startX = e.touches[0].clientX - offsetX;
+                startY = e.touches[0].clientY - offsetY;
+            } else if (e.touches.length === 2) {
+                isDragging = false; 
+                startScale = scale;
+                touchStartDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        });
+
+        viewport.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (e.touches.length === 1 && isDragging) {
+                isPanning = true;
+                offsetX = e.touches[0].clientX - startX;
+                offsetY = e.touches[0].clientY - startY;
+                render();
+            } else if (e.touches.length === 2) {
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const factor = dist / touchStartDist;
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const canvasX = (midX - offsetX) / scale;
+                const canvasY = (midY - offsetY) / scale;
+
+                scale = Math.max(0.05, Math.min(startScale * factor, 15));
+                offsetX = midX - canvasX * scale;
+                offsetY = midY - canvasY * scale;
+                render();
+            }
+        }, { passive: false });
+
+        viewport.addEventListener('touchend', (e) => {
+            if (isDragging && !isPanning && e.changedTouches.length > 0) {
+                const touch = e.changedTouches[0];
+                const clickX = Math.floor((touch.clientX - offsetX) / (scale * CELL_SIZE));
+                const clickY = Math.floor((touch.clientY - offsetY) / (scale * CELL_SIZE));
+                tryPlacePixel(clickX, clickY);
+            }
+            isDragging = false;
+        });
+
+        palette.addEventListener('click', (e) => {
+            if (e.target.classList.contains('color-btn')) {
+                document.querySelector('.color-btn.active').classList.remove('active');
+                e.target.classList.add('active');
+                selectedColor = e.target.getAttribute('data-color');
+            }
+        });
+
+        window.addEventListener('resize', render);
+        centerCanvas();
+    </script>
+</body>
+</html>
