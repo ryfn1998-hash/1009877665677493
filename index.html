@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pixel Wars 500x500 自由亂鬥版</title>
+    <title>Pixel Wars 500x500 管理員上帝版</title>
     <style>
         body {
             margin: 0;
@@ -24,10 +24,45 @@
             text-align: center;
             z-index: 10;
             width: 90%;
-            pointer-events: none;
         }
-        h1 { margin: 0; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
-        p { margin: 5px 0 0 0; font-size: 13px; color: #ffcc00; text-shadow: 0 1px 2px rgba(0,0,0,0.8); font-weight: bold; }
+        h1 { margin: 0; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); pointer-events: none; }
+        p { margin: 5px 0 0 0; font-size: 13px; color: #ffcc00; text-shadow: 0 1px 2px rgba(0,0,0,0.8); font-weight: bold; pointer-events: none; }
+
+        /* 👑 管理員工具箱樣式 */
+        #admin-panel {
+            background: rgba(20, 20, 20, 0.95);
+            border: 2px solid #ffcc00;
+            border-radius: 12px;
+            padding: 10px;
+            margin-top: 10px;
+            pointer-events: auto;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.8);
+            display: inline-block;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .admin-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .admin-btn {
+            background: #ffcc00;
+            color: black;
+            border: none;
+            padding: 5px 12px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .admin-btn:hover { background: #ffe066; }
+        .admin-btn.active { background: #ff3b30; color: white; }
+        #image-input { display: none; }
+        .stamp-preview-canvas {
+            display: none; /* 隱藏後台處理用畫布 */
+        }
 
         #viewport {
             width: 100vw;
@@ -95,8 +130,19 @@
 <body>
 
     <div id="ui-top">
-        <h1>Pixel Wars 像素大戰</h1>
+        <h1>Pixel Wars 像素大戰 (管理員端)</h1>
         <p id="status">無限狂歡模式：點擊立刻上色，全無冷卻時間！</p>
+        
+        <div id="admin-panel">
+            <div class="admin-row">
+                <span style="font-size: 12px; color: #ffcc00; font-weight: bold;">👑 上帝權限：</span>
+                <button class="admin-btn active" id="mode-single-btn">單點模式</button>
+                <button class="admin-btn" id="mode-stamp-btn" disabled>印章模式 (請先上傳圖片)</button>
+                <label class="admin-btn" style="background:#00cc00; color:white;" for="image-input">上傳印章圖片</label>
+                <input type="file" id="image-input" accept="image/*">
+                <span id="stamp-info" style="font-size: 12px; color: #aaa;"></span>
+            </div>
+        </div>
     </div>
 
     <div id="viewport">
@@ -117,6 +163,8 @@
             <div class="color-btn" style="background-color: #00a0a0;" data-color="#00a0a0"></div>
         </div>
     </div>
+
+    <canvas id="hiddenCanvas" class="stamp-preview-canvas"></canvas>
 
     <script>
         const firebaseConfig = {
@@ -141,6 +189,14 @@
         const palette = document.getElementById('palette');
         const statusText = document.getElementById('status');
 
+        // 印章相關 DOM 變數
+        const imageInput = document.getElementById('image-input');
+        const modeSingleBtn = document.getElementById('mode-single-btn');
+        const modeStampBtn = document.getElementById('mode-stamp-btn');
+        const stampInfo = document.getElementById('stamp-info');
+        const hiddenCanvas = document.getElementById('hiddenCanvas');
+        const hCtx = hiddenCanvas.getContext('2d');
+
         const MAP_SIZE = 500; 
         const CELL_SIZE = 10;
 
@@ -163,6 +219,14 @@
 
         const localMap = {}; 
 
+        // 👑 印章核心變數
+        let currentMode = 'single'; // 'single' 或 'stamp'
+        let stampData = null;       // 儲存解析後的印章像素陣列 [{dx, dy, color}]
+        let stampWidth = 0;
+        let stampHeight = 0;
+        let mouseGridX = -1;        // 當前滑鼠指向的畫布格座標
+        let mouseGridY = -1;
+
         function centerCanvas() {
             scale = Math.min(window.innerWidth, window.innerHeight) / (MAP_SIZE * CELL_SIZE) * 0.9;
             offsetX = (window.innerWidth - (MAP_SIZE * CELL_SIZE) * scale) / 2;
@@ -170,12 +234,39 @@
             render();
         }
 
+        // RGB 轉成 16 進位網頁色碼
+        function rgbToHex(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 1. 繪製所有基礎像素點
             for (let key in localMap) {
                 const [x, y] = key.split(',').map(Number);
                 ctx.fillStyle = localMap[key];
                 ctx.fillRect(x, y, 1, 1);
+            }
+
+            // 2. 👑 如果是印章模式，且有印章資料，即時在畫面上繪製「半透明懸浮預覽」
+            if (currentMode === 'stamp' && stampData && mouseGridX !== -1 && mouseGridY !== -1) {
+                ctx.save();
+                ctx.globalAlpha = 0.5; // 50% 半透明預覽
+                stampData.forEach(pixel => {
+                    const targetX = mouseGridX + pixel.dx;
+                    const targetY = mouseGridY + pixel.dy;
+                    if (targetX >= 0 && targetX < MAP_SIZE && targetY >= 0 && targetY < MAP_SIZE) {
+                        ctx.fillStyle = pixel.color;
+                        ctx.fillRect(targetX, targetY, 1, 1);
+                    }
+                });
+                ctx.restore();
+
+                // 補一個定位紅色框線
+                ctx.strokeStyle = '#ff3b30';
+                ctx.lineWidth = 1 / scale;
+                ctx.strokeRect(mouseGridX, mouseGridY, stampWidth, stampHeight);
             }
 
             if (scale > 0.8) {
@@ -217,7 +308,7 @@
             }
         });
 
-        // 🟢 核心改動：移除所有時間攔截，所有人點擊直接送往 Firebase
+        // 核心單點上色
         function tryPlacePixel(clickX, clickY) {
             if (clickX >= 0 && clickX < MAP_SIZE && clickY >= 0 && clickY < MAP_SIZE) {
                 const dbKey = `x${clickX}_y${clickY}`;
@@ -225,14 +316,128 @@
                     color: selectedColor,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 }).catch((error) => {
-                    console.error("上傳失敗：", error);
+                    console.error("單點上傳失敗：", error);
                 });
             }
         }
 
+        // 👑 核心：轟炸式印章上色
+        function tryPlaceStamp(startX, startY) {
+            if (!stampData) return;
+            
+            // 建立一個批次更新包，減少跟 Firebase 的請求次數，防止網頁卡死
+            const updates = {};
+            let count = 0;
+
+            stampData.forEach(pixel => {
+                const targetX = startX + pixel.dx;
+                const targetY = startY + pixel.dy;
+                
+                if (targetX >= 0 && targetX < MAP_SIZE && targetY >= 0 && targetY < MAP_SIZE) {
+                    const dbKey = `x${targetX}_y${targetY}`;
+                    updates[dbKey] = {
+                        color: pixel.color,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    };
+                    count++;
+                }
+            });
+
+            if (count > 0) {
+                statusText.innerText = `👑 上帝印章發動：正在上傳 ${count} 個像素點...`;
+                pixelsRef.update(updates).then(() => {
+                    statusText.innerText = `👑 成功擴印 ${count} 個像素！`;
+                }).catch((error) => {
+                    console.error("印章批量上傳失敗：", error);
+                    statusText.innerText = "上傳失敗，可能一次蓋太多點被 Firebase 拒絕了！";
+                });
+            }
+        }
+
+        // 👑 監聽上傳圖片並轉換為像素矩陣
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    // 限制最大印章大小不超過 80x80，防止一次上傳數萬點導致 Firebase 直接封鎖你的帳號
+                    let w = img.width;
+                    let h = img.height;
+                    const MAX_STAMP_SIDE = 80;
+                    if (w > MAX_STAMP_SIDE || h > MAX_STAMP_SIDE) {
+                        if (w > h) {
+                            h = Math.round((h * MAX_STAMP_SIDE) / w);
+                            w = MAX_STAMP_SIDE;
+                        } else {
+                            w = Math.round((w * MAX_STAMP_SIDE) / h);
+                            h = MAX_STAMP_SIDE;
+                        }
+                    }
+
+                    stampWidth = w;
+                    stampHeight = h;
+                    hiddenCanvas.width = w;
+                    hiddenCanvas.height = h;
+                    
+                    // 繪製到後台畫布並抓取像素
+                    hCtx.drawImage(img, 0, 0, w, h);
+                    const imgData = hCtx.getImageData(0, 0, w, h).data;
+                    
+                    stampData = [];
+                    for (let y = 0; y < h; y++) {
+                        for (let x = 0; x < w; x++) {
+                            const idx = (y * w + x) * 4;
+                            const r = imgData[idx];
+                            const g = imgData[idx+1];
+                            const b = imgData[idx+2];
+                            const a = imgData[idx+3];
+
+                            // 過濾掉完全透明的像素背景
+                            if (a > 50) {
+                                stampData.push({
+                                    dx: x,
+                                    dy: y,
+                                    color: rgbToHex(r, g, b)
+                                });
+                            }
+                        }
+                    }
+
+                    stampInfo.innerText = `大小: ${w}x${h} (共 ${stampData.length} 點)`;
+                    modeStampBtn.removeAttribute('disabled');
+                    modeStampBtn.innerText = "切換至印章模式";
+                    
+                    // 自動切換到印章模式
+                    switchMode('stamp');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function switchMode(mode) {
+            currentMode = mode;
+            if (mode === 'single') {
+                modeSingleBtn.classList.add('active');
+                modeStampBtn.classList.remove('active');
+                statusText.innerText = "無限狂歡模式：單點放置中。";
+            } else {
+                modeSingleBtn.classList.remove('active');
+                modeStampBtn.classList.add('active');
+                statusText.innerText = "👑 印章轟炸模式已啟動！點擊直接黏貼圖片！";
+            }
+            render();
+        }
+
+        modeSingleBtn.addEventListener('click', () => switchMode('single'));
+        modeStampBtn.addEventListener('click', () => { if (stampData) switchMode('stamp'); });
+
         // --- 操作事件監聽 ---
         viewport.addEventListener('mousedown', (e) => {
-            if (e.target === palette || e.target.classList.contains('color-btn')) return;
+            if (e.target.closest('#admin-panel') || e.target === palette || e.target.classList.contains('color-btn')) return;
             isDragging = true;
             isPanning = false;
             startX = e.clientX - offsetX;
@@ -240,6 +445,19 @@
         });
 
         window.addEventListener('mousemove', (e) => {
+            // 隨時更新滑鼠對應在畫布上的網格格數（用於印章半透明預覽）
+            const currentGridX = Math.floor((e.clientX - offsetX) / (scale * CELL_SIZE));
+            const currentGridY = Math.floor((e.clientY - offsetY) / (scale * CELL_SIZE));
+            
+            if (currentGridX !== mouseGridX || currentGridY !== mouseGridY) {
+                mouseGridX = currentGridX;
+                mouseGridY = currentGridY;
+                // 印章模式下，滑鼠一移動就要不停重繪預覽
+                if (currentMode === 'stamp') {
+                    render();
+                }
+            }
+
             if (!isDragging) return;
             isPanning = true;
             offsetX = e.clientX - startX;
@@ -253,7 +471,13 @@
             if (!isPanning) {
                 const clickX = Math.floor((e.clientX - offsetX) / (scale * CELL_SIZE));
                 const clickY = Math.floor((e.clientY - offsetY) / (scale * CELL_SIZE));
-                tryPlacePixel(clickX, clickY);
+                
+                // 判斷當前是管理員單點還是管理員印章
+                if (currentMode === 'single') {
+                    tryPlacePixel(clickX, clickY);
+                } else if (currentMode === 'stamp') {
+                    tryPlaceStamp(clickX, clickY);
+                }
             }
         });
 
@@ -275,6 +499,7 @@
         }, { passive: false });
 
         viewport.addEventListener('touchstart', (e) => {
+            if (e.target.closest('#admin-panel') || e.target === palette || e.target.classList.contains('color-btn')) return;
             if (e.touches.length === 1) {
                 isDragging = true;
                 isPanning = false;
@@ -291,6 +516,7 @@
         });
 
         viewport.addEventListener('touchmove', (e) => {
+            if (e.target.closest('#admin-panel')) return;
             e.preventDefault();
             if (e.touches.length === 1 && isDragging) {
                 isPanning = true;
@@ -320,7 +546,11 @@
                 const touch = e.changedTouches[0];
                 const clickX = Math.floor((touch.clientX - offsetX) / (scale * CELL_SIZE));
                 const clickY = Math.floor((touch.clientY - offsetY) / (scale * CELL_SIZE));
-                tryPlacePixel(clickX, clickY);
+                if (currentMode === 'single') {
+                    tryPlacePixel(clickX, clickY);
+                } else if (currentMode === 'stamp') {
+                    tryPlaceStamp(clickX, clickY);
+                }
             }
             isDragging = false;
         });
