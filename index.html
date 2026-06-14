@@ -2,169 +2,167 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pixel Wars 500x500 管理員上帝版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Wars - 官方機器人混戰主控後台 👑</title>
     <style>
         body {
             margin: 0;
-            background-color: #121212;
-            color: white;
-            font-family: sans-serif;
+            background-color: #0e1111;
+            color: #eceff1;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
             overflow: hidden;
-            position: fixed;
-            width: 100%;
-            height: 100%;
+        }
+
+        /* 🎛️ 左側管理控制台 */
+        #admin-panel {
+            width: 380px;
+            background-color: #1c2324;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.7);
+            z-index: 30;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #2d383a;
+        }
+
+        h2 { margin: 0; font-size: 20px; color: #00e676; text-align: center; border-bottom: 2px solid #2d383a; padding-bottom: 10px;}
+        h3 { margin: 0; font-size: 14px; color: #81d4fa; text-transform: uppercase; letter-spacing: 1px;}
+
+        .section {
+            background: #252f31;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #37474f;
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label { font-size: 12px; color: #b0bec5; }
+        input[type="number"], input[type="file"] {
+            background: #14191a;
+            border: 1px solid #455a64;
+            padding: 8px;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
         }
         
-        #ui-top {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            text-align: center;
-            z-index: 10;
-            width: 90%;
-        }
-        h1 { margin: 0; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); pointer-events: none; }
-        p { margin: 5px 0 0 0; font-size: 13px; color: #ffcc00; text-shadow: 0 1px 2px rgba(0,0,0,0.8); font-weight: bold; pointer-events: none; }
-
-        /* 👑 管理員工具箱樣式 */
-        #admin-panel {
-            background: rgba(20, 20, 20, 0.95);
-            border: 2px solid #ffcc00;
-            border-radius: 12px;
-            padding: 10px;
-            margin-top: 10px;
-            pointer-events: auto;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.8);
-            display: inline-block;
-            max-width: 100%;
-            box-sizing: border-box;
-        }
-        .admin-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .admin-btn {
-            background: #ffcc00;
-            color: black;
+        button {
+            background: #0076ff;
+            color: white;
             border: none;
-            padding: 5px 12px;
+            padding: 10px;
+            border-radius: 6px;
             font-weight: bold;
-            border-radius: 5px;
             cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
         }
-        .admin-btn:hover { background: #ffe066; }
-        .admin-btn.active { background: #ff3b30; color: white; }
-        #image-input { display: none; }
-        .stamp-preview-canvas {
-            display: none; /* 隱藏後台處理用畫布 */
-        }
+        button:hover { background: #005ecb; transform: translateY(-1px); }
+        button.stop { background: #d32f2f; }
+        button.stop:hover { background: #b71c1c; }
 
-        #viewport {
-            width: 100vw;
-            height: 100vh;
-            position: absolute;
-            top: 0;
-            left: 0;
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            background: #ff5722;
+            color: white;
+            margin-top: 5px;
+        }
+        .status-badge.active { background: #4caf50; }
+
+        /* 🗺️ 右側畫布預覽區 */
+        #preview-area {
+            flex: 1;
+            position: relative;
+            background-color: #121212;
             cursor: grab;
         }
-        #viewport:active { cursor: grabbing; }
-
         #canvas-wrapper {
             position: absolute;
-            box-shadow: 0 0 40px rgba(0,0,0,0.6);
             background-color: white;
-            background-image: 
-                linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
-            background-size: 10px 10px;
             transform-origin: 0 0;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
         }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            image-rendering: -moz-crisp-edges;
-            image-rendering: -webkit-crisp-edges;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-        }
-
-        #ui-bottom {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
-        }
-        .palette {
-            display: flex;
-            gap: 8px;
-            background: rgba(40, 40, 40, 0.85);
-            backdrop-filter: blur(10px);
-            padding: 8px 15px;
-            border-radius: 30px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        }
-        .color-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 2px solid transparent;
-            cursor: pointer;
-        }
-        .color-btn.active {
-            border-color: white;
-            transform: scale(1.1);
-        }
+        canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
     </style>
-
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
-    <div id="ui-top">
-        <h1>Pixel Wars 像素大戰 (管理員端)</h1>
-        <p id="status">無限狂歡模式：點擊立刻上色，全無冷卻時間！</p>
-        
-        <div id="admin-panel">
-            <div class="admin-row">
-                <span style="font-size: 12px; color: #ffcc00; font-weight: bold;">👑 上帝權限：</span>
-                <button class="admin-btn active" id="mode-single-btn">單點模式</button>
-                <button class="admin-btn" id="mode-stamp-btn" disabled>印章模式 (請先上傳圖片)</button>
-                <label class="admin-btn" style="background:#00cc00; color:white;" for="image-input">上傳印章圖片</label>
-                <input type="file" id="image-input" accept="image/*">
-                <span id="stamp-info" style="font-size: 12px; color: #aaa;"></span>
+    <div id="admin-panel">
+        <h2>機器人大戰控制台 👑</h2>
+
+        <div class="section">
+            <h3>📊 客戶端數值操控</h3>
+            <div class="input-group" style="margin-top:10px;">
+                <label>修改「即時在線人數」</label>
+                <input type="number" id="input-online" value="99">
             </div>
+            <div class="input-group">
+                <label>修改「總瀏覽次數」</label>
+                <input type="number" id="input-views" value="88888">
+            </div>
+            <button onclick="updateClientStats()">推送數據到前端網頁</button>
+        </div>
+
+        <div class="section">
+            <h3>🤖 隨機亂塗鴉機器人組</h3>
+            <div class="input-group" style="margin-top:10px;">
+                <label>假人軍團數量</label>
+                <input type="number" id="bot-count" value="10">
+            </div>
+            <div class="input-group">
+                <label>出點冷卻速度 (毫秒/點)</label>
+                <input type="number" id="bot-speed" value="300">
+            </div>
+            <button id="btn-toggle-rand-bot" onclick="toggleRandomBots()">啟動假人軍團大亂鬥</button>
+            <div id="rand-bot-status" class="status-badge">狀態：關閉中</div>
+        </div>
+
+        <div class="section">
+            <h3>🖼️ 圖片列印機器人印章</h3>
+            <div class="input-group" style="margin-top:10px;">
+                <label>上傳目標圖片 (會自動點陣化)</label>
+                <input type="file" id="image-loader" accept="image/*">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div class="input-group" style="flex:1;">
+                    <label>起點 X 座標</label>
+                    <input type="number" id="img-start-x" value="100">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label>起點 Y 座標</label>
+                    <input type="number" id="img-start-y" value="100">
+                </div>
+            </div>
+            <button id="btn-toggle-img-bot" onclick="startImagePrinterBot()">啟動圖片機器人印章</button>
+            <div id="img-bot-status" class="status-badge">狀態：閒置中</div>
+        </div>
+        
+        <div class="section" style="background:#1a1f21; text-align:center; font-size:11px; color:#607d8b;">
+            提示：點擊右側畫布並拖曳、或滾動滾輪，可以即時監看戰場現況。
         </div>
     </div>
 
-    <div id="viewport">
+    <div id="preview-area" id="viewport">
         <div id="canvas-wrapper">
             <canvas id="pixelCanvas"></canvas>
         </div>
     </div>
-
-    <div id="ui-bottom">
-        <div class="palette" id="palette">
-            <div class="color-btn active" style="background-color: #000000;" data-color="#000000"></div>
-            <div class="color-btn" style="background-color: #ffffff; border: 1px solid #555;" data-color="#ffffff"></div>
-            <div class="color-btn" style="background-color: #e50000;" data-color="#e50000"></div>
-            <div class="color-btn" style="background-color: #00cc00;" data-color="#00cc00"></div>
-            <div class="color-btn" style="background-color: #0000e5;" data-color="#0000e5"></div>
-            <div class="color-btn" style="background-color: #f5f500;" data-color="#f5f500"></div>
-            <div class="color-btn" style="background-color: #a000a0;" data-color="#a000a0"></div>
-            <div class="color-btn" style="background-color: #00a0a0;" data-color="#00a0a0"></div>
-        </div>
-    </div>
-
-    <canvas id="hiddenCanvas" class="stamp-preview-canvas"></canvas>
 
     <script>
         const firebaseConfig = {
@@ -181,21 +179,191 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         const pixelsRef = db.ref('pixels');
+        const ServerValue = firebase.database.ServerValue;
 
-        const viewport = document.getElementById('viewport');
+        // 初始化抓取現有設定值
+        db.ref('stats/onlineUsers').once('value', s => { if(s.exists()) document.getElementById('input-online').value = s.val(); });
+        db.ref('stats/totalViews').once('value', s => { if(s.exists()) document.getElementById('input-views').value = s.val(); });
+
+        // 1. 客戶端數據修改發送函數
+        function updateClientStats() {
+            const onlineValue = parseInt(document.getElementById('input-online').value, 10);
+            const viewsValue = parseInt(document.getElementById('input-views').value, 10);
+            
+            db.ref('stats').set({
+                onlineUsers: onlineValue,
+                totalViews: viewsValue
+            }).then(() => {
+                alert("👑 成功注入上帝數值至前端客戶端！");
+            });
+        }
+
+        // 2. 隨機假人機器人模組邏輯
+        let randomBotIntervals = [];
+        let randomBotsActive = false;
+        const hexColors = ["#000000", "#ffffff", "#e50000", "#00cc00", "#0000e5", "#f5f500", "#a000a0", "#00a0a0"];
+
+        function toggleRandomBots() {
+            const btn = document.getElementById('btn-toggle-rand-bot');
+            const status = document.getElementById('rand-bot-status');
+            
+            if (!randomBotsActive) {
+                const count = parseInt(document.getElementById('bot-count').value, 10);
+                const speed = parseInt(document.getElementById('bot-speed').value, 10);
+                
+                randomBotIntervals = [];
+                for(let i=0; i<count; i++) {
+                    let interval = setInterval(() => {
+                        let rx = Math.floor(Math.random() * MAP_SIZE);
+                        let ry = Math.floor(Math.random() * MAP_SIZE);
+                        let rc = hexColors[Math.floor(Math.random() * hexColors.length)];
+                        
+                        pixelsRef.child(`x${rx}_y${ry}`).set({
+                            color: rc,
+                            timestamp: ServerValue.TIMESTAMP
+                        });
+                    }, speed + (Math.random() * 100)); // 略微錯開避免同時發包
+                    randomBotIntervals.push(interval);
+                }
+                
+                randomBotsActive = true;
+                btn.innerText = "終止假人軍團大亂鬥";
+                btn.classList.add('stop');
+                status.innerText = "狀態：大軍肆虐中 🔥";
+                status.classList.add('active');
+            } else {
+                randomBotIntervals.forEach(clearInterval);
+                randomBotIntervals = [];
+                randomBotsActive = false;
+                btn.innerText = "啟動假人軍團大亂鬥";
+                btn.classList.remove('stop');
+                status.innerText = "狀態：關閉中";
+                status.classList.remove('active');
+            }
+        }
+
+        // 3. 手動精準控制：自動讀圖畫布像素列印印章機器人邏輯
+        let imgPrinterActive = false;
+        let pixelQueue = [];
+        let imgPrinterTimeout = null;
+
+        function startImagePrinterBot() {
+            const fileInput = document.getElementById('image-loader');
+            const btn = document.getElementById('btn-toggle-img-bot');
+            const status = document.getElementById('img-bot-status');
+
+            if (imgPrinterActive) {
+                // 取消下列印
+                clearTimeout(imgPrinterTimeout);
+                pixelQueue = [];
+                imgPrinterActive = false;
+                btn.innerText = "啟動圖片機器人印章";
+                btn.classList.remove('stop');
+                status.innerText = "狀態：已中止 🛑";
+                status.classList.remove('active');
+                return;
+            }
+
+            if (!fileInput.files || !fileInput.files[0]) {
+                alert("請先選擇一張想要上傳列印的圖片檔！");
+                return;
+            }
+
+            const startX = parseInt(document.getElementById('img-start-x').value, 10);
+            const startY = parseInt(document.getElementById('img-start-y').value, 10);
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            status.innerText = "狀態：正在解析並點陣化圖片...";
+            
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    // 利用隱藏的 canvas 擷取色彩矩陣
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // 防呆限制：如果圖片大於畫布，將其限缩
+                    let w = img.width;
+                    let h = img.height;
+                    if(startX + w > MAP_SIZE) w = MAP_SIZE - startX;
+                    if(startY + h > MAP_SIZE) h = MAP_SIZE - startY;
+                    
+                    tempCanvas.width = w;
+                    tempCanvas.height = h;
+                    tempCtx.drawImage(img, 0, 0, w, h);
+                    
+                    const imgData = tempCtx.getImageData(0, 0, w, h).data;
+                    pixelQueue = [];
+
+                    // 將全圖像素轉移到自動列印隊列中
+                    for (let y = 0; y < h; y++) {
+                        for (let x = 0; x < w; x++) {
+                            const idx = (y * w + x) * 4;
+                            const r = imgData[idx];
+                            const g = imgData[idx+1];
+                            const b = imgData[idx+2];
+                            const a = imgData[idx+3];
+                            
+                            // 略過透明像素點
+                            if (a > 50) { 
+                                const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+                                pixelQueue.push({ targetX: startX + x, targetY: startY + y, color: hex });
+                            }
+                        }
+                    }
+
+                    if(pixelQueue.length === 0) {
+                        alert("解析失敗或圖片全為透明！");
+                        status.innerText = "狀態：閒置中";
+                        return;
+                    }
+
+                    imgPrinterActive = true;
+                    btn.innerText = "中止圖片列印機器人";
+                    btn.classList.add('stop');
+                    status.innerText = `狀態：繪製中 (剩餘 ${pixelQueue.length} 像素點)`;
+                    status.classList.add('active');
+                    
+                    // 啟動多點併發節流列印閥
+                    runImagePrinterLoop();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 圖片像素隊列自動消耗循環 (每 30 毫秒高速並行寫入 5 個點避免 Firebase 阻塞)
+        function runImagePrinterLoop() {
+            if (!imgPrinterActive || pixelQueue.length === 0) {
+                imgPrinterActive = false;
+                document.getElementById('btn-toggle-img-bot').innerText = "啟動圖片機器人印章";
+                document.getElementById('btn-toggle-img-bot').classList.remove('stop');
+                document.getElementById('img-bot-status').innerText = "狀態：列印大功告成！👑";
+                document.getElementById('img-bot-status').classList.remove('active');
+                return;
+            }
+
+            const batchSize = 8; // 後台管理者專屬併發出點數（高速完成）
+            for(let i=0; i<batchSize; i++) {
+                if(pixelQueue.length > 0) {
+                    const p = pixelQueue.shift();
+                    db.ref(`pixels/x${p.targetX}_y${p.targetY}`).set({
+                        color: p.color,
+                        timestamp: ServerValue.TIMESTAMP
+                    });
+                }
+            }
+
+            document.getElementById('img-bot-status').innerText = `狀態：繪製中 (剩餘 ${pixelQueue.length} 點)`;
+            imgPrinterTimeout = setTimeout(runImagePrinterLoop, 25);
+        }
+
+        // ===================== 以下為右側後台畫布引擎渲染及同步代碼 =====================
+        const viewport = document.getElementById('preview-area');
         const wrapper = document.getElementById('canvas-wrapper');
         const canvas = document.getElementById('pixelCanvas');
         const ctx = canvas.getContext('2d');
-        const palette = document.getElementById('palette');
-        const statusText = document.getElementById('status');
-
-        // 印章相關 DOM 變數
-        const imageInput = document.getElementById('image-input');
-        const modeSingleBtn = document.getElementById('mode-single-btn');
-        const modeStampBtn = document.getElementById('mode-stamp-btn');
-        const stampInfo = document.getElementById('stamp-info');
-        const hiddenCanvas = document.getElementById('hiddenCanvas');
-        const hCtx = hiddenCanvas.getContext('2d');
 
         const MAP_SIZE = 500; 
         const CELL_SIZE = 10;
@@ -204,367 +372,60 @@
         wrapper.style.height = (MAP_SIZE * CELL_SIZE) + 'px';
         canvas.width = MAP_SIZE;
         canvas.height = MAP_SIZE;
-
         ctx.imageSmoothingEnabled = false;
 
-        let scale = 1;         
-        let offsetX = 0;       
-        let offsetY = 0;       
+        let scale = 0.15; // 預設縮小以便後台全景看戰局
+        let offsetX = 50;       
+        let offsetY = 50;       
         let isDragging = false;
         let startX, startY;
-        let touchStartDist = 0; 
-        let startScale = 1;
-        let isPanning = false;  
-        let selectedColor = '#000000';
+        const localMap = {};
 
-        const localMap = {}; 
-
-        // 👑 印章核心變數
-        let currentMode = 'single'; // 'single' 或 'stamp'
-        let stampData = null;       // 儲存解析後的印章像素陣列 [{dx, dy, color}]
-        let stampWidth = 0;
-        let stampHeight = 0;
-        let mouseGridX = -1;        // 當前滑鼠指向的畫布格座標
-        let mouseGridY = -1;
-
-        function centerCanvas() {
-            scale = Math.min(window.innerWidth, window.innerHeight) / (MAP_SIZE * CELL_SIZE) * 0.9;
-            offsetX = (window.innerWidth - (MAP_SIZE * CELL_SIZE) * scale) / 2;
-            offsetY = (window.innerHeight - (MAP_SIZE * CELL_SIZE) * scale) / 2;
-            render();
-        }
-
-        // RGB 轉成 16 進位網頁色碼
-        function rgbToHex(r, g, b) {
-            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        let renderRequested = false;
+        function requestRender() {
+            if (!renderRequested) {
+                renderRequested = true;
+                requestAnimationFrame(() => { renderRequested = false; render(); });
+            }
         }
 
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // 1. 繪製所有基礎像素點
             for (let key in localMap) {
                 const [x, y] = key.split(',').map(Number);
                 ctx.fillStyle = localMap[key];
                 ctx.fillRect(x, y, 1, 1);
             }
-
-            // 2. 👑 如果是印章模式，且有印章資料，即時在畫面上繪製「半透明懸浮預覽」
-            if (currentMode === 'stamp' && stampData && mouseGridX !== -1 && mouseGridY !== -1) {
-                ctx.save();
-                ctx.globalAlpha = 0.5; // 50% 半透明預覽
-                stampData.forEach(pixel => {
-                    const targetX = mouseGridX + pixel.dx;
-                    const targetY = mouseGridY + pixel.dy;
-                    if (targetX >= 0 && targetX < MAP_SIZE && targetY >= 0 && targetY < MAP_SIZE) {
-                        ctx.fillStyle = pixel.color;
-                        ctx.fillRect(targetX, targetY, 1, 1);
-                    }
-                });
-                ctx.restore();
-
-                // 補一個定位紅色框線
-                ctx.strokeStyle = '#ff3b30';
-                ctx.lineWidth = 1 / scale;
-                ctx.strokeRect(mouseGridX, mouseGridY, stampWidth, stampHeight);
-            }
-
-            if (scale > 0.8) {
-                wrapper.style.backgroundImage = `
-                    linear-gradient(to right, rgba(0,0,0,0.15) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(0,0,0,0.15) 1px, transparent 1px)
-                `;
-            } else {
-                wrapper.style.backgroundImage = `
-                    linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px)
-                `;
-            }
             wrapper.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
         }
 
-        // 即時監聽雲端資料庫
         pixelsRef.on('child_added', (snapshot) => {
-            const key = snapshot.key;
-            const data = snapshot.val();
+            const key = snapshot.key; const data = snapshot.val();
             const cleanKey = key.replace('x', '').replace('y', '').replace('_', ',');
-            localMap[cleanKey] = data.color;
-            render();
+            localMap[cleanKey] = data.color; requestRender();
         });
 
         pixelsRef.on('child_changed', (snapshot) => {
-            const key = snapshot.key;
-            const data = snapshot.val();
+            const key = snapshot.key; const data = snapshot.val();
             const cleanKey = key.replace('x', '').replace('y', '').replace('_', ',');
-            localMap[cleanKey] = data.color;
-            render();
+            localMap[cleanKey] = data.color; requestRender();
         });
 
-        db.ref('.info/connected').on('value', (snapshot) => {
-            if (snapshot.val() === true) {
-                statusText.innerText = "無限狂歡模式：點擊立刻上色，全無冷卻時間！";
-            } else {
-                statusText.innerText = "斷線中，正在重新連線...";
-            }
-        });
-
-        // 核心單點上色
-        function tryPlacePixel(clickX, clickY) {
-            if (clickX >= 0 && clickX < MAP_SIZE && clickY >= 0 && clickY < MAP_SIZE) {
-                const dbKey = `x${clickX}_y${clickY}`;
-                pixelsRef.child(dbKey).set({
-                    color: selectedColor,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                }).catch((error) => {
-                    console.error("單點上傳失敗：", error);
-                });
-            }
-        }
-
-        // 👑 核心：轟炸式印章上色
-        function tryPlaceStamp(startX, startY) {
-            if (!stampData) return;
-            
-            // 建立一個批次更新包，減少跟 Firebase 的請求次數，防止網頁卡死
-            const updates = {};
-            let count = 0;
-
-            stampData.forEach(pixel => {
-                const targetX = startX + pixel.dx;
-                const targetY = startY + pixel.dy;
-                
-                if (targetX >= 0 && targetX < MAP_SIZE && targetY >= 0 && targetY < MAP_SIZE) {
-                    const dbKey = `x${targetX}_y${targetY}`;
-                    updates[dbKey] = {
-                        color: pixel.color,
-                        timestamp: firebase.database.ServerValue.TIMESTAMP
-                    };
-                    count++;
-                }
-            });
-
-            if (count > 0) {
-                statusText.innerText = `👑 上帝印章發動：正在上傳 ${count} 個像素點...`;
-                pixelsRef.update(updates).then(() => {
-                    statusText.innerText = `👑 成功擴印 ${count} 個像素！`;
-                }).catch((error) => {
-                    console.error("印章批量上傳失敗：", error);
-                    statusText.innerText = "上傳失敗，可能一次蓋太多點被 Firebase 拒絕了！";
-                });
-            }
-        }
-
-        // 👑 監聽上傳圖片並轉換為像素矩陣
-        imageInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const img = new Image();
-                img.onload = function() {
-                    // 限制最大印章大小不超過 80x80，防止一次上傳數萬點導致 Firebase 直接封鎖你的帳號
-                    let w = img.width;
-                    let h = img.height;
-                    const MAX_STAMP_SIDE = 80;
-                    if (w > MAX_STAMP_SIDE || h > MAX_STAMP_SIDE) {
-                        if (w > h) {
-                            h = Math.round((h * MAX_STAMP_SIDE) / w);
-                            w = MAX_STAMP_SIDE;
-                        } else {
-                            w = Math.round((w * MAX_STAMP_SIDE) / h);
-                            h = MAX_STAMP_SIDE;
-                        }
-                    }
-
-                    stampWidth = w;
-                    stampHeight = h;
-                    hiddenCanvas.width = w;
-                    hiddenCanvas.height = h;
-                    
-                    // 繪製到後台畫布並抓取像素
-                    hCtx.drawImage(img, 0, 0, w, h);
-                    const imgData = hCtx.getImageData(0, 0, w, h).data;
-                    
-                    stampData = [];
-                    for (let y = 0; y < h; y++) {
-                        for (let x = 0; x < w; x++) {
-                            const idx = (y * w + x) * 4;
-                            const r = imgData[idx];
-                            const g = imgData[idx+1];
-                            const b = imgData[idx+2];
-                            const a = imgData[idx+3];
-
-                            // 過濾掉完全透明的像素背景
-                            if (a > 50) {
-                                stampData.push({
-                                    dx: x,
-                                    dy: y,
-                                    color: rgbToHex(r, g, b)
-                                });
-                            }
-                        }
-                    }
-
-                    stampInfo.innerText = `大小: ${w}x${h} (共 ${stampData.length} 點)`;
-                    modeStampBtn.removeAttribute('disabled');
-                    modeStampBtn.innerText = "切換至印章模式";
-                    
-                    // 自動切換到印章模式
-                    switchMode('stamp');
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-
-        function switchMode(mode) {
-            currentMode = mode;
-            if (mode === 'single') {
-                modeSingleBtn.classList.add('active');
-                modeStampBtn.classList.remove('active');
-                statusText.innerText = "無限狂歡模式：單點放置中。";
-            } else {
-                modeSingleBtn.classList.remove('active');
-                modeStampBtn.classList.add('active');
-                statusText.innerText = "👑 印章轟炸模式已啟動！點擊直接黏貼圖片！";
-            }
-            render();
-        }
-
-        modeSingleBtn.addEventListener('click', () => switchMode('single'));
-        modeStampBtn.addEventListener('click', () => { if (stampData) switchMode('stamp'); });
-
-        // --- 操作事件監聽 ---
+        // 畫布滑鼠操作監視器
         viewport.addEventListener('mousedown', (e) => {
-            if (e.target.closest('#admin-panel') || e.target === palette || e.target.classList.contains('color-btn')) return;
-            isDragging = true;
-            isPanning = false;
-            startX = e.clientX - offsetX;
-            startY = e.clientY - offsetY;
+            isDragging = true; startX = e.clientX - offsetX; startY = e.clientY - offsetY;
         });
-
         window.addEventListener('mousemove', (e) => {
-            // 隨時更新滑鼠對應在畫布上的網格格數（用於印章半透明預覽）
-            const currentGridX = Math.floor((e.clientX - offsetX) / (scale * CELL_SIZE));
-            const currentGridY = Math.floor((e.clientY - offsetY) / (scale * CELL_SIZE));
-            
-            if (currentGridX !== mouseGridX || currentGridY !== mouseGridY) {
-                mouseGridX = currentGridX;
-                mouseGridY = currentGridY;
-                // 印章模式下，滑鼠一移動就要不停重繪預覽
-                if (currentMode === 'stamp') {
-                    render();
-                }
-            }
-
-            if (!isDragging) return;
-            isPanning = true;
-            offsetX = e.clientX - startX;
-            offsetY = e.clientY - startY;
-            render();
+            if (!isDragging) return; offsetX = e.clientX - startX; offsetY = e.clientY - startY; requestRender();
         });
-
-        window.addEventListener('mouseup', (e) => {
-            if (!isDragging) return;
-            isDragging = false;
-            if (!isPanning) {
-                const clickX = Math.floor((e.clientX - offsetX) / (scale * CELL_SIZE));
-                const clickY = Math.floor((e.clientY - offsetY) / (scale * CELL_SIZE));
-                
-                // 判斷當前是管理員單點還是管理員印章
-                if (currentMode === 'single') {
-                    tryPlacePixel(clickX, clickY);
-                } else if (currentMode === 'stamp') {
-                    tryPlaceStamp(clickX, clickY);
-                }
-            }
-        });
-
+        window.addEventListener('mouseup', () => { isDragging = false; });
         viewport.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const zoomFactor = 1.2;
-            const mouseX = e.clientX;
-            const mouseY = e.clientY;
-            const canvasX = (mouseX - offsetX) / scale;
-            const canvasY = (mouseY - offsetY) / scale;
-
-            if (e.deltaY < 0) scale *= zoomFactor;
-            else scale /= zoomFactor;
-            scale = Math.max(0.05, Math.min(scale, 15));
-
-            offsetX = mouseX - canvasX * scale;
-            offsetY = mouseY - canvasY * scale;
-            render();
+            e.preventDefault(); const zoomFactor = 1.2;
+            if (e.deltaY < 0) scale *= zoomFactor; else scale /= zoomFactor;
+            scale = Math.max(0.02, Math.min(scale, 15)); requestRender();
         }, { passive: false });
 
-        viewport.addEventListener('touchstart', (e) => {
-            if (e.target.closest('#admin-panel') || e.target === palette || e.target.classList.contains('color-btn')) return;
-            if (e.touches.length === 1) {
-                isDragging = true;
-                isPanning = false;
-                startX = e.touches[0].clientX - offsetX;
-                startY = e.touches[0].clientY - offsetY;
-            } else if (e.touches.length === 2) {
-                isDragging = false; 
-                startScale = scale;
-                touchStartDist = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-            }
-        });
-
-        viewport.addEventListener('touchmove', (e) => {
-            if (e.target.closest('#admin-panel')) return;
-            e.preventDefault();
-            if (e.touches.length === 1 && isDragging) {
-                isPanning = true;
-                offsetX = e.touches[0].clientX - startX;
-                offsetY = e.touches[0].clientY - startY;
-                render();
-            } else if (e.touches.length === 2) {
-                const dist = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                const factor = dist / touchStartDist;
-                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-                const canvasX = (midX - offsetX) / scale;
-                const canvasY = (midY - offsetY) / scale;
-
-                scale = Math.max(0.05, Math.min(startScale * factor, 15));
-                offsetX = midX - canvasX * scale;
-                offsetY = midY - canvasY * scale;
-                render();
-            }
-        }, { passive: false });
-
-        viewport.addEventListener('touchend', (e) => {
-            if (isDragging && !isPanning && e.changedTouches.length > 0) {
-                const touch = e.changedTouches[0];
-                const clickX = Math.floor((touch.clientX - offsetX) / (scale * CELL_SIZE));
-                const clickY = Math.floor((touch.clientY - offsetY) / (scale * CELL_SIZE));
-                if (currentMode === 'single') {
-                    tryPlacePixel(clickX, clickY);
-                } else if (currentMode === 'stamp') {
-                    tryPlaceStamp(clickX, clickY);
-                }
-            }
-            isDragging = false;
-        });
-
-        palette.addEventListener('click', (e) => {
-            if (e.target.classList.contains('color-btn')) {
-                document.querySelector('.color-btn.active').classList.remove('active');
-                e.target.classList.add('active');
-                selectedColor = e.target.getAttribute('data-color');
-            }
-        });
-
-        window.addEventListener('resize', render);
-        centerCanvas();
+        requestRender();
     </script>
 </body>
 </html>
